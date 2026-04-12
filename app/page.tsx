@@ -11,18 +11,19 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (session) {
-        router.push('/dashboard')
-      }
-      setLoading(false)
+  const checkAuth = async () => {
+    // 🔥 force refresh
+    const { data, error } = await supabase.auth.refreshSession()
+
+    if (data?.session) {
+      router.push('/dashboard')
     }
 
-    checkAuth()
-  }, [router])
+    setLoading(false)
+  }
+
+  checkAuth()
+}, [router])
 
   if (loading) {
     return (
