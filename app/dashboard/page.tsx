@@ -39,7 +39,7 @@ const [formData, setFormData] = useState({
 const [progressMap, setProgressMap] = useState<Record<string, number>>({})
   useEffect(() => {
     const checkAuth = async () => {
-      const { data, error } = await supabase.auth.refreshSession()
+      const { session, error } = await supabase.auth.refreshSession()
 
       if (!session) {
         router.push('/auth/login')
