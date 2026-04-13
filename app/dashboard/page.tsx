@@ -42,7 +42,7 @@ const [progressMap, setProgressMap] = useState<Record<string, number>>({})
       const {
   data: { session },
   error,} = await supabase.auth.refreshSession()
-      if (!session) {
+      if (!data) {
         router.push('/auth/login')
         return
       }
