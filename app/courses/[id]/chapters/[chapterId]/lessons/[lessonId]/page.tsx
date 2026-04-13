@@ -205,7 +205,7 @@ export default function LessonPage() {
                 )}
 
                 {lesson.content && (
-                  <div>
+                  <div className="break-words">
                     <h3 className="font-semibold mb-2">المحتوى</h3>
                     <div className="prose dark:prose-invert max-w-none">
                       {lesson.content}
