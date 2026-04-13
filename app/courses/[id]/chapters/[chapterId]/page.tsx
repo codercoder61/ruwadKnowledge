@@ -117,7 +117,7 @@ export default function ChapterPage() {
         ) : (
           <div className="space-y-4 flex flex-wrap justify-center flex-row-reverse">
             {lessons.map((lesson) => (
-              <Card key={lesson.id}>
+              <Card className="m-4 w-full sm:w-[300px]" key={lesson.id}>
                 <CardHeader>
                   <CardTitle className="text-lg">{lesson.title}</CardTitle>
                 </CardHeader>
