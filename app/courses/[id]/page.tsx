@@ -181,7 +181,7 @@ export default function CourseDetailPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 flex justify-between flex-wrap flex-row-reverse">
               {chapters.map((chapter) => (
                 <Card key={chapter.id}>
                   <CardHeader>
