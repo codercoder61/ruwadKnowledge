@@ -94,7 +94,6 @@ const [progressMap, setProgressMap] = useState<Record<string, number>>({})
   const courses = data.map(item => item.courses)
 
   setCourses(courses || [])
-  return
 }
 
       // 🔥 admin
