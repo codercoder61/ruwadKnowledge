@@ -38,98 +38,87 @@ const [formData, setFormData] = useState({
 
 const [progressMap, setProgressMap] = useState<Record<string, number>>({})
   useEffect(() => {
-    const checkAuth = async () => {
+  const checkAuth = async () => {
+    try {
       const {
-  data: { session },
-  error,
-} = await supabase.auth.getSession()
-      if (!data) {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) {
         router.push('/auth/login')
         return
       }
 
-      // Get user profile
+      const userId = session.user.id
+
+      // 🔥 fetch user profile
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('id', userId)
         .single()
 
       if (userError || !userData) {
-        console.error('User fetch error:', userError)
+        console.error(userError)
         return
       }
 
       setUser(userData)
 
-      // If instructor, get their courses
+      // 🔥 instructor
       if (userData.role === 'instructor') {
-        const { data: coursesData } = await supabase
+        const { data } = await supabase
           .from('courses')
           .select('*')
-          .eq('instructor_id', userData.id)
+          .eq('instructor_id', userId)
 
-        setCourses(coursesData || [])
-        setLoading(false)
+        setCourses(data || [])
         return
       }
 
-
-
+      // 🔥 admin
       if (userData.role === 'admin') {
-        const { data: coursesDataForAdmin } = await supabase
+        const { data } = await supabase
           .from('courses')
           .select('*')
 
-        setCoursesForAdmin(coursesDataForAdmin || [])
-        setLoading(false)
+        setCoursesForAdmin(data || [])
         return
       }
 
-
-
-
-      // If student, get enrollments and enrolled courses
-      const { data: enrollmentsData } = await supabase
-        .from('enrollments')
-        .select('*')
-        .eq('student_id', session.user.id)
-
-      if (enrollmentsData) {
-        setEnrollments(enrollmentsData)
-
-        // Get enrolled course details
-        const courseIds = enrollmentsData.map((e) => e.course_id)
-        if (courseIds.length > 0) {
-          const { data: coursesData } = await supabase
-            .from('courses')
+      // 🔥 student (parallel improvement)
+      const [{ data: enrollmentsData }, { data: progressData }] =
+        await Promise.all([
+          supabase
+            .from('enrollments')
             .select('*')
-            .in('id', courseIds)
+            .eq('student_id', userId),
 
-          setCourses(coursesData || [])
-        }
-      }
+          supabase.rpc('get_courses_progress', {
+            student_id: userId,
+          }),
+        ])
 
-      // 3. NOW safely call RPC (after user is known)
-    const { data: progressData } = await supabase.rpc(
-  'get_courses_progress',
-  { student_id: session.user.id }
-) as { data: CourseProgress[] | null }
+      setEnrollments(enrollmentsData || [])
 
-    const map = Object.fromEntries(
-  (progressData || []).map((p: CourseProgress) => [
-    p.course_id,
-    p.percentage,
-  ])
-)
+      const map = Object.fromEntries(
+        (progressData || []).map((p: CourseProgress) => [
+          p.course_id,
+          p.percentage,
+        ])
+      )
 
-    setProgressMap(map)
-
+      setProgressMap(map)
+    } catch (err) {
+      console.error(err)
+      router.push('/auth/login')
+    } finally {
       setLoading(false)
     }
+  }
 
-    checkAuth()
-  }, [router])
+  checkAuth()
+}, [router])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
