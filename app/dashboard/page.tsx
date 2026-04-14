@@ -76,6 +76,27 @@ const [progressMap, setProgressMap] = useState<Record<string, number>>({})
         return
       }
 
+
+      if (userData.role === 'student') {
+  const { data, error } = await supabase
+    .from('enrollments')
+    .select(`
+      courses (*)
+    `)
+    .eq('student_id', userId)
+
+  if (error) {
+    console.error(error)
+    return
+  }
+
+  // extract courses from nested result
+  const courses = data.map(item => item.courses)
+
+  setCourses(courses || [])
+  return
+}
+
       // 🔥 admin
       if (userData.role === 'admin') {
         const { data } = await supabase
