@@ -115,7 +115,7 @@ const [progressMap, setProgressMap] = useState<Record<string, number>>({})
             .eq('student_id', userId),
 
           supabase.rpc('get_courses_progress', {
-            student_id: userId,
+            p_student_id: userId,
           }),
         ])
 
