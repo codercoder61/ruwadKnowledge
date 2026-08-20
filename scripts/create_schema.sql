@@ -89,26 +89,35 @@ CREATE INDEX idx_course_ratings_student_id ON public.course_ratings(student_id);
 
 ALTER TABLE public.course_ratings ENABLE ROW LEVEL SECURITY;
 
+GRANT SELECT ON public.course_ratings TO anon, authenticated;
+GRANT INSERT, UPDATE ON public.course_ratings TO authenticated;
+
+DROP POLICY IF EXISTS "Anyone can read course ratings" ON public.course_ratings;
+DROP POLICY IF EXISTS "Enrolled students can rate courses" ON public.course_ratings;
+DROP POLICY IF EXISTS "Students can update their own course ratings" ON public.course_ratings;
+
 CREATE POLICY "Anyone can read course ratings" ON public.course_ratings
-  FOR SELECT USING (TRUE);
+  FOR SELECT TO anon, authenticated USING (TRUE);
 
 CREATE POLICY "Enrolled students can rate courses" ON public.course_ratings
-  FOR INSERT WITH CHECK (
-    student_id = auth.uid() AND
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    student_id = (SELECT auth.uid()) AND
     EXISTS (
       SELECT 1 FROM public.enrollments
-      WHERE enrollments.student_id = auth.uid()
+      WHERE enrollments.student_id = (SELECT auth.uid())
         AND enrollments.course_id = course_ratings.course_id
     )
   );
 
 CREATE POLICY "Students can update their own course ratings" ON public.course_ratings
-  FOR UPDATE USING (student_id = auth.uid())
+  FOR UPDATE TO authenticated
+  USING (student_id = (SELECT auth.uid()))
   WITH CHECK (
-    student_id = auth.uid() AND
+    student_id = (SELECT auth.uid()) AND
     EXISTS (
       SELECT 1 FROM public.enrollments
-      WHERE enrollments.student_id = auth.uid()
+      WHERE enrollments.student_id = (SELECT auth.uid())
         AND enrollments.course_id = course_ratings.course_id
     )
   );
