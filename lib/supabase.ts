@@ -79,4 +79,13 @@ export interface Progress {
   completed_at?: string
 }
 
+export interface CourseRating {
+  id: string
+  course_id: string
+  student_id: string
+  rating: number
+  created_at: string
+  updated_at: string
+}
+
 

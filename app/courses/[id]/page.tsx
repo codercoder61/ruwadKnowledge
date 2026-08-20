@@ -25,6 +25,10 @@ export default function CourseDetailPage() {
   const [loading, setLoading] = useState(true)
   const [enrolling, setEnrolling] = useState(false)
   const [completedChapters, setCompletedChapters] = useState<Set<string>>(new Set())
+  const [ratingAverage, setRatingAverage] = useState(0)
+  const [ratingCount, setRatingCount] = useState(0)
+  const [myRating, setMyRating] = useState(0)
+  const [savingRating, setSavingRating] = useState(false)
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -55,6 +59,17 @@ export default function CourseDetailPage() {
           .single()
 
         setCourse(courseData)
+
+        const { data: ratings } = await supabase
+          .from('course_ratings')
+          .select('rating, student_id')
+          .eq('course_id', courseId)
+        if (ratings?.length) {
+          setRatingCount(ratings.length)
+          setRatingAverage(ratings.reduce((sum, item) => sum + item.rating, 0) / ratings.length)
+          const ownRating = ratings.find((item) => item.student_id === session.user.id)
+          setMyRating(ownRating?.rating || 0)
+        }
 
         // Get chapters
         const { data: chaptersData } = await supabase
@@ -106,6 +121,22 @@ export default function CourseDetailPage() {
       fetchCourseData()
     }
   }, [courseId, router])
+
+  const handleRating = async (rating: number) => {
+    if (!user || !enrollment) return
+    setSavingRating(true)
+    const { error } = await supabase.from('course_ratings').upsert(
+      { course_id: courseId, student_id: user.id, rating, updated_at: new Date().toISOString() },
+      { onConflict: 'course_id,student_id' },
+    )
+    if (!error) {
+      const nextCount = myRating ? ratingCount : ratingCount + 1
+      setRatingAverage((ratingAverage * ratingCount - (myRating || 0) + rating) / nextCount)
+      setRatingCount(nextCount)
+      setMyRating(rating)
+    }
+    setSavingRating(false)
+  }
 
   const handleEnroll = async () => {
     if (!user) return
@@ -169,6 +200,13 @@ export default function CourseDetailPage() {
           <h1 className="text-4xl font-bold mb-2">{course.title}</h1>
           <p className="text-lg text-muted-foreground mb-4">{course.description}</p>
 
+          {ratingCount > 0 && (
+            <p className="mb-4 text-sm text-muted-foreground" aria-label={`متوسط التقييم ${ratingAverage.toFixed(1)} من 5`}>
+              <span className="text-amber-500" aria-hidden="true">★</span>{' '}
+              {ratingAverage.toFixed(1)} من 5 ({ratingCount} تقييم)
+            </p>
+          )}
+
           <div className="flex flex-wrap gap-3 mb-6">
             <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
               {course.level}
@@ -185,8 +223,28 @@ export default function CourseDetailPage() {
           )}
 
           {enrollment && (
-            <div className="p-4 bg-primary/10 text-primary rounded-lg">
-              ✓ أنت مسجل في هذه الدورة
+            <div className="flex flex-col gap-3">
+              <div className="p-4 bg-primary/10 text-primary rounded-lg">
+                ✓ أنت مسجل في هذه الدورة
+              </div>
+              <fieldset className="flex flex-col gap-2" disabled={savingRating}>
+                <legend className="text-sm font-medium">قيّم هذه الدورة</legend>
+                <div className="flex items-center gap-1" role="radiogroup" aria-label="تقييم الدورة من 1 إلى 5">
+                  {[1, 2, 3, 4, 5].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={myRating === value}
+                      aria-label={`${value} من 5 نجوم`}
+                      onClick={() => handleRating(value)}
+                      className="rounded-md p-1 text-2xl leading-none text-muted-foreground transition-colors hover:text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className={value <= myRating ? 'text-amber-500' : ''} aria-hidden="true">★</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
             </div>
           )}
         </div>

@@ -73,6 +73,46 @@ CREATE TABLE IF NOT EXISTS public.progress (
   UNIQUE(student_id, lesson_id)
 );
 
+-- Create course_ratings table
+CREATE TABLE IF NOT EXISTS public.course_ratings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(course_id, student_id)
+);
+
+CREATE INDEX idx_course_ratings_course_id ON public.course_ratings(course_id);
+CREATE INDEX idx_course_ratings_student_id ON public.course_ratings(student_id);
+
+ALTER TABLE public.course_ratings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read course ratings" ON public.course_ratings
+  FOR SELECT USING (TRUE);
+
+CREATE POLICY "Enrolled students can rate courses" ON public.course_ratings
+  FOR INSERT WITH CHECK (
+    student_id = auth.uid() AND
+    EXISTS (
+      SELECT 1 FROM public.enrollments
+      WHERE enrollments.student_id = auth.uid()
+        AND enrollments.course_id = course_ratings.course_id
+    )
+  );
+
+CREATE POLICY "Students can update their own course ratings" ON public.course_ratings
+  FOR UPDATE USING (student_id = auth.uid())
+  WITH CHECK (
+    student_id = auth.uid() AND
+    EXISTS (
+      SELECT 1 FROM public.enrollments
+      WHERE enrollments.student_id = auth.uid()
+        AND enrollments.course_id = course_ratings.course_id
+    )
+  );
+
 -- Create moderation_reports table
 CREATE TABLE IF NOT EXISTS public.moderation_reports (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
