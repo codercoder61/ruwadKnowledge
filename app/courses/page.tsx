@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Course } from '@/lib/supabase'
+import { getCourseRatingSummaries, formatRatingAverage } from '@/lib/course-ratings'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,17 +37,8 @@ export default function CoursesPage() {
         setFilteredCourses(publishedCourses)
 
         const courseIds = publishedCourses.map((course) => course.id)
-        if (courseIds.length > 0) {
-          const { data: ratings } = await supabase.from('course_ratings').select('course_id, rating').in('course_id', courseIds)
-          const summaries: Record<string, { average: number; count: number }> = {}
-          for (const rating of ratings || []) {
-            const summary = summaries[rating.course_id] || { average: 0, count: 0 }
-            summary.average = (summary.average * summary.count + rating.rating) / (summary.count + 1)
-            summary.count += 1
-            summaries[rating.course_id] = summary
-          }
-          setRatingSummaries(summaries)
-        }
+        const { summaries } = await getCourseRatingSummaries(courseIds)
+        setRatingSummaries(summaries)
 
         const {
           data: { session },
@@ -196,12 +188,13 @@ export default function CoursesPage() {
                     <p className="text-sm text-muted-foreground line-clamp-3">
                       {course.description}
                     </p>
-                    {ratingSummaries[course.id] && (
-                      <p className="mt-4 text-sm text-muted-foreground" aria-label={`تقييم الدورة ${ratingSummaries[course.id].average.toFixed(1)} من 5`}>
-                        <span className="text-amber-500" aria-hidden="true">★</span>{' '}
-                        {ratingSummaries[course.id].average.toFixed(1)} ({ratingSummaries[course.id].count} تقييم)
-                      </p>
-                    )}
+                    <div className="mt-4 flex items-center gap-2 text-sm" aria-label={`متوسط تقييم الدورة ${formatRatingAverage(ratingSummaries[course.id]?.average || 0)} من 5`}>
+                      <span className="text-amber-500" aria-hidden="true">★</span>
+                      <span className="font-medium">{formatRatingAverage(ratingSummaries[course.id]?.average || 0)} / 5</span>
+                      <span className="text-muted-foreground">
+                        ({ratingSummaries[course.id]?.count || 0} تقييم)
+                      </span>
+                    </div>
                   </CardContent>
                 </Card>
               </Link>

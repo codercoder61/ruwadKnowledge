@@ -29,6 +29,7 @@ export default function CourseDetailPage() {
   const [ratingCount, setRatingCount] = useState(0)
   const [myRating, setMyRating] = useState(0)
   const [savingRating, setSavingRating] = useState(false)
+  const [ratingError, setRatingError] = useState('')
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -60,11 +61,18 @@ export default function CourseDetailPage() {
 
         setCourse(courseData)
 
-        const { data: ratings } = await supabase
+        setRatingAverage(0)
+        setRatingCount(0)
+        setMyRating(0)
+        setRatingError('')
+        const { data: ratings, error: ratingsError } = await supabase
           .from('course_ratings')
           .select('rating, student_id')
           .eq('course_id', courseId)
-        if (ratings?.length) {
+        if (ratingsError) {
+          console.error('[v0] Failed to load course rating:', ratingsError.message)
+          setRatingError('تعذر تحميل التقييمات حالياً')
+        } else if (ratings?.length) {
           setRatingCount(ratings.length)
           setRatingAverage(ratings.reduce((sum, item) => sum + item.rating, 0) / ratings.length)
           const ownRating = ratings.find((item) => item.student_id === session.user.id)
@@ -125,11 +133,15 @@ export default function CourseDetailPage() {
   const handleRating = async (rating: number) => {
     if (!user || !enrollment) return
     setSavingRating(true)
+    setRatingError('')
     const { error } = await supabase.from('course_ratings').upsert(
       { course_id: courseId, student_id: user.id, rating, updated_at: new Date().toISOString() },
       { onConflict: 'course_id,student_id' },
     )
-    if (!error) {
+    if (error) {
+      console.error('[v0] Failed to save course rating:', error.message)
+      setRatingError('تعذر حفظ تقييمك. تأكد من تفعيل جدول التقييمات ثم حاول مرة أخرى.')
+    } else {
       const nextCount = myRating ? ratingCount : ratingCount + 1
       setRatingAverage((ratingAverage * ratingCount - (myRating || 0) + rating) / nextCount)
       setRatingCount(nextCount)
@@ -200,12 +212,11 @@ export default function CourseDetailPage() {
           <h1 className="text-4xl font-bold mb-2">{course.title}</h1>
           <p className="text-lg text-muted-foreground mb-4">{course.description}</p>
 
-          {ratingCount > 0 && (
-            <p className="mb-4 text-sm text-muted-foreground" aria-label={`متوسط التقييم ${ratingAverage.toFixed(1)} من 5`}>
-              <span className="text-amber-500" aria-hidden="true">★</span>{' '}
-              {ratingAverage.toFixed(1)} من 5 ({ratingCount} تقييم)
-            </p>
-          )}
+          <p className="mb-4 text-sm text-muted-foreground" aria-label={`متوسط التقييم ${ratingCount > 0 ? ratingAverage.toFixed(1) : 'لا يوجد'} من 5`}>
+            <span className="text-amber-500" aria-hidden="true">★</span>{' '}
+            {ratingCount > 0 ? `${ratingAverage.toFixed(1)} من 5 (${ratingCount} تقييم)` : 'لا توجد تقييمات بعد'}
+          </p>
+          {ratingError && <p className="mb-4 text-sm text-destructive">{ratingError}</p>}
 
           <div className="flex flex-wrap gap-3 mb-6">
             <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
