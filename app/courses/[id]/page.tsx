@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Course, Chapter, Enrollment } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 
@@ -23,6 +24,7 @@ export default function CourseDetailPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [enrolling, setEnrolling] = useState(false)
+  const [completedChapters, setCompletedChapters] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -62,6 +64,25 @@ export default function CourseDetailPage() {
           .order('order_index', { ascending: true })
 
         setChapters(chaptersData || [])
+
+        if (userData?.role === 'student' && session.user.id && (chaptersData || []).length > 0) {
+          const chapterIds = (chaptersData || []).map((chapter) => chapter.id)
+          const { data: lessons } = await supabase.from('lessons').select('id, chapter_id').in('chapter_id', chapterIds)
+          const lessonIds = lessons?.map((lesson) => lesson.id) || []
+          const { data: progress } = lessonIds.length
+            ? await supabase.from('progress').select('lesson_id').eq('student_id', session.user.id).eq('completed', true).in('lesson_id', lessonIds)
+            : { data: [] as { lesson_id: string }[] }
+          const completedLessonIds = new Set(progress?.map((item) => item.lesson_id) || [])
+          const nextCompletedChapters = new Set<string>()
+
+          for (const chapter of chaptersData || []) {
+            const chapterLessonIds = (lessons || []).filter((lesson) => lesson.chapter_id === chapter.id).map((lesson) => lesson.id)
+            if (chapterLessonIds.length > 0 && chapterLessonIds.every((lessonId) => completedLessonIds.has(lessonId))) {
+              nextCompletedChapters.add(chapter.id)
+            }
+          }
+          setCompletedChapters(nextCompletedChapters)
+        }
 
         // Check if user is enrolled
         if (userData?.role === 'student') {
@@ -185,7 +206,10 @@ export default function CourseDetailPage() {
               {chapters.map((chapter) => (
                 <Card className="m-4 w-full sm:w-[300px]" key={chapter.id}>
                   <CardHeader>
-                    <CardTitle className="text-lg">{chapter.title}</CardTitle>
+                    <div className="flex items-start justify-between gap-3">
+                      <CardTitle className="text-lg">{chapter.title}</CardTitle>
+                      {completedChapters.has(chapter.id) && <Badge variant="secondary">مكتمل</Badge>}
+                    </div>
                     {chapter.description && (
                       <CardDescription>{chapter.description}</CardDescription>
                     )}
