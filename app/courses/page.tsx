@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Course } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
@@ -16,6 +17,7 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [level, setLevel] = useState('')
+  const [completedCourses, setCompletedCourses] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -28,8 +30,40 @@ export default function CoursesPage() {
       if (error) {
         console.error('Error fetching courses:', error)
       } else {
-        setCourses(data || [])
-        setFilteredCourses(data || [])
+        const publishedCourses = data || []
+        setCourses(publishedCourses)
+        setFilteredCourses(publishedCourses)
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (session && publishedCourses.length > 0) {
+          const courseIds = publishedCourses.map((course) => course.id)
+          const { data: chapters } = await supabase
+            .from('chapters')
+            .select('id, course_id')
+            .in('course_id', courseIds)
+          const chapterIds = chapters?.map((chapter) => chapter.id) || []
+          const { data: lessons } = chapterIds.length
+            ? await supabase.from('lessons').select('id, chapter_id').in('chapter_id', chapterIds)
+            : { data: [] as { id: string; chapter_id: string }[] }
+          const lessonIds = lessons?.map((lesson) => lesson.id) || []
+          const { data: progress } = lessonIds.length
+            ? await supabase.from('progress').select('lesson_id').eq('student_id', session.user.id).eq('completed', true).in('lesson_id', lessonIds)
+            : { data: [] as { lesson_id: string }[] }
+          const completedLessonIds = new Set(progress?.map((item) => item.lesson_id) || [])
+          const nextCompletedCourses = new Set<string>()
+
+          for (const courseId of courseIds) {
+            const courseChapterIds = (chapters || []).filter((chapter) => chapter.course_id === courseId).map((chapter) => chapter.id)
+            const courseLessonIds = (lessons || []).filter((lesson) => courseChapterIds.includes(lesson.chapter_id)).map((lesson) => lesson.id)
+            if (courseLessonIds.length > 0 && courseLessonIds.every((lessonId) => completedLessonIds.has(lessonId))) {
+              nextCompletedCourses.add(courseId)
+            }
+          }
+          setCompletedCourses(nextCompletedCourses)
+        }
       }
       setLoading(false)
     }
@@ -136,7 +170,10 @@ export default function CoursesPage() {
                     </div>
                   )}
                   <CardHeader>
-                    <CardTitle className="text-lg">{course.title}</CardTitle>
+                    <div className="flex items-start justify-between gap-3">
+                      <CardTitle className="text-lg">{course.title}</CardTitle>
+                      {completedCourses.has(course.id) && <Badge variant="secondary">مكتملة</Badge>}
+                    </div>
                     <CardDescription className="text-xs">
                       {course.level} • {course.category}
                     </CardDescription>

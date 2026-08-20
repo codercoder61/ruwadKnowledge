@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Chapter, Lesson } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 
@@ -16,6 +17,7 @@ export default function ChapterPage() {
 
   const [chapter, setChapter] = useState<Chapter | null>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -46,7 +48,19 @@ export default function ChapterPage() {
           .eq('chapter_id', chapterId)
           .order('order_index', { ascending: true })
 
-        setLessons(lessonsData || [])
+        const nextLessons = lessonsData || []
+        setLessons(nextLessons)
+
+        const lessonIds = nextLessons.map((lesson) => lesson.id)
+        if (lessonIds.length > 0) {
+          const { data: progress } = await supabase
+            .from('progress')
+            .select('lesson_id')
+            .eq('student_id', session.user.id)
+            .eq('completed', true)
+            .in('lesson_id', lessonIds)
+          setCompletedLessons(new Set(progress?.map((item) => item.lesson_id) || []))
+        }
       } catch (error) {
         console.error('Error fetching chapter:', error)
       } finally {
@@ -119,7 +133,10 @@ export default function ChapterPage() {
             {lessons.map((lesson) => (
               <Card className="m-4 w-full sm:w-[300px]" key={lesson.id}>
                 <CardHeader>
-                  <CardTitle className="text-lg">{lesson.title}</CardTitle>
+                  <div className="flex items-start justify-between gap-3">
+                    <CardTitle className="text-lg">{lesson.title}</CardTitle>
+                    {completedLessons.has(lesson.id) && <Badge variant="secondary">مكتمل</Badge>}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {lesson.description && (
