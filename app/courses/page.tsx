@@ -18,6 +18,7 @@ export default function CoursesPage() {
   const [search, setSearch] = useState('')
   const [level, setLevel] = useState('')
   const [completedCourses, setCompletedCourses] = useState<Set<string>>(new Set())
+  const [ratingSummaries, setRatingSummaries] = useState<Record<string, { average: number; count: number }>>({})
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -33,6 +34,19 @@ export default function CoursesPage() {
         const publishedCourses = data || []
         setCourses(publishedCourses)
         setFilteredCourses(publishedCourses)
+
+        const courseIds = publishedCourses.map((course) => course.id)
+        if (courseIds.length > 0) {
+          const { data: ratings } = await supabase.from('course_ratings').select('course_id, rating').in('course_id', courseIds)
+          const summaries: Record<string, { average: number; count: number }> = {}
+          for (const rating of ratings || []) {
+            const summary = summaries[rating.course_id] || { average: 0, count: 0 }
+            summary.average = (summary.average * summary.count + rating.rating) / (summary.count + 1)
+            summary.count += 1
+            summaries[rating.course_id] = summary
+          }
+          setRatingSummaries(summaries)
+        }
 
         const {
           data: { session },
@@ -182,6 +196,12 @@ export default function CoursesPage() {
                     <p className="text-sm text-muted-foreground line-clamp-3">
                       {course.description}
                     </p>
+                    {ratingSummaries[course.id] && (
+                      <p className="mt-4 text-sm text-muted-foreground" aria-label={`تقييم الدورة ${ratingSummaries[course.id].average.toFixed(1)} من 5`}>
+                        <span className="text-amber-500" aria-hidden="true">★</span>{' '}
+                        {ratingSummaries[course.id].average.toFixed(1)} ({ratingSummaries[course.id].count} تقييم)
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               </Link>
