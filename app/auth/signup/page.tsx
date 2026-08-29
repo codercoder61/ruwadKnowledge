@@ -136,14 +136,14 @@ export default function SignupPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm">
-            لديك حساب بالفعل؟{' '}
-            <Link
-              href="/auth/login"
-              className="font-medium text-primary hover:underline"
-            >
-              تسجيل الدخول
-            </Link>
+          <div className="mt-6 flex items-center justify-between gap-3 text-sm">
+            <span>
+              لديك حساب بالفعل؟{' '}
+              <Link href="/auth/login" className="font-medium text-primary hover:underline">
+                تسجيل الدخول
+              </Link>
+            </span>
+            <Link href="/" className="font-medium text-primary hover:underline">الرئيسية</Link>
           </div>
         </CardContent>
       </Card>
