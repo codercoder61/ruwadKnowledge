@@ -113,6 +113,9 @@ CREATE POLICY "Students can update their own course ratings" ON public.course_ra
     )
   );
 
+CREATE POLICY "Students can delete their own course ratings" ON public.course_ratings
+  FOR DELETE USING (student_id = auth.uid());
+
 -- Create moderation_reports table
 CREATE TABLE IF NOT EXISTS public.moderation_reports (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

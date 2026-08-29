@@ -130,22 +130,46 @@ export default function CourseDetailPage() {
     }
   }, [courseId, router])
 
+  const refreshRatings = async () => {
+    const { data: ratings, error } = await supabase
+      .from('course_ratings')
+      .select('rating, student_id')
+      .eq('course_id', courseId)
+
+    if (error) {
+      console.error('[v0] Failed to refresh course ratings:', error.message)
+      throw error
+    }
+
+    const nextRatings = ratings ?? []
+    setRatingCount(nextRatings.length)
+    setRatingAverage(
+      nextRatings.length
+        ? nextRatings.reduce((sum, item) => sum + item.rating, 0) / nextRatings.length
+        : 0,
+    )
+    setMyRating(nextRatings.find((item) => item.student_id === user?.id)?.rating ?? 0)
+  }
+
   const handleRating = async (rating: number) => {
-    if (!user || !enrollment) return
+    if (!user || !enrollment || savingRating || rating < 1 || rating > 5) return
     setSavingRating(true)
     setRatingError('')
+
     const { error } = await supabase.from('course_ratings').upsert(
       { course_id: courseId, student_id: user.id, rating, updated_at: new Date().toISOString() },
       { onConflict: 'course_id,student_id' },
     )
+
     if (error) {
       console.error('[v0] Failed to save course rating:', error.message)
-      setRatingError('تعذر حفظ تقييمك. تأكد من تفعيل جدول التقييمات ثم حاول مرة أخرى.')
+      setRatingError('تعذر حفظ تقييمك. تأكد من أنك مسجل في الدورة ثم حاول مرة أخرى.')
     } else {
-      const nextCount = myRating ? ratingCount : ratingCount + 1
-      setRatingAverage((ratingAverage * ratingCount - (myRating || 0) + rating) / nextCount)
-      setRatingCount(nextCount)
-      setMyRating(rating)
+      try {
+        await refreshRatings()
+      } catch {
+        setRatingError('تم حفظ تقييمك، لكن تعذر تحديث الملخص حالياً.')
+      }
     }
     setSavingRating(false)
   }
@@ -249,9 +273,12 @@ export default function CourseDetailPage() {
                       aria-checked={myRating === value}
                       aria-label={`${value} من 5 نجوم`}
                       onClick={() => handleRating(value)}
-                      className="rounded-md p-1 text-2xl leading-none text-muted-foreground transition-colors hover:text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      disabled={savingRating}
+                      className={`rounded-md p-1 text-2xl leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        value <= myRating ? 'text-amber-500' : 'text-muted-foreground hover:text-amber-500'
+                      }`}
                     >
-                      <span className={value <= myRating ? 'text-amber-500' : ''} aria-hidden="true">★</span>
+                      <span aria-hidden="true">★</span>
                     </button>
                   ))}
                 </div>
