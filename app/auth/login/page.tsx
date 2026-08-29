@@ -83,14 +83,20 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm">
-            ليس لديك حساب؟{' '}
-            <Link
-              href="/auth/signup"
-              className="font-medium text-primary hover:underline"
-            >
-              إنشاء حساب جديد
+          <div className="mt-4 text-center text-sm">
+            <Link href="/auth/forgot-password" className="font-medium text-primary hover:underline">
+              نسيت كلمة المرور؟
             </Link>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between gap-3 text-sm">
+            <span>
+              ليس لديك حساب؟{' '}
+              <Link href="/auth/signup" className="font-medium text-primary hover:underline">
+                إنشاء حساب جديد
+              </Link>
+            </span>
+            <Link href="/" className="font-medium text-primary hover:underline">الرئيسية</Link>
           </div>
         </CardContent>
       </Card>
