@@ -113,6 +113,23 @@ CREATE POLICY "Students can update their own course ratings" ON public.course_ra
     )
   );
 
+-- Create comments table
+CREATE TABLE IF NOT EXISTS public.comments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+  lesson_id UUID REFERENCES public.lessons(id) ON DELETE CASCADE,
+  author_name TEXT NOT NULL DEFAULT 'Anonyme',
+  content TEXT NOT NULL CHECK (char_length(content) BETWEEN 1 AND 1000),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CONSTRAINT comments_scope_check CHECK (lesson_id IS NULL OR course_id IS NOT NULL)
+);
+
+CREATE INDEX idx_comments_course_id ON public.comments(course_id);
+CREATE INDEX idx_comments_lesson_id ON public.comments(lesson_id);
+ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Anyone can read comments" ON public.comments FOR SELECT USING (TRUE);
+CREATE POLICY "Anyone can add comments" ON public.comments FOR INSERT WITH CHECK (char_length(content) BETWEEN 1 AND 1000);
+
 -- Create moderation_reports table
 CREATE TABLE IF NOT EXISTS public.moderation_reports (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

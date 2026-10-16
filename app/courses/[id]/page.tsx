@@ -308,6 +308,7 @@ export default function CourseDetailPage() {
         <CommentsSection
           title="Commentaires sur la course"
           description="Posez vos questions et échangez avec les autres apprenants."
+          courseId={courseId}
         />
       </main>
     </div>
