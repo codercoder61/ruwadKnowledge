@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
+import { CommentsSection } from '@/components/comments-section'
 
 interface CourseWithChapters extends Course {
   chapters?: Chapter[]
@@ -303,6 +304,11 @@ export default function CourseDetailPage() {
             </div>
           )}
         </div>
+
+        <CommentsSection
+          title="Commentaires sur la course"
+          description="Posez vos questions et échangez avec les autres apprenants."
+        />
       </main>
     </div>
   )
