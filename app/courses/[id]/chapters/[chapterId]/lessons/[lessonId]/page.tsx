@@ -7,6 +7,7 @@ import type { Lesson, Progress } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
+import { CommentsSection } from '@/components/comments-section'
 
 export default function LessonPage() {
   const router = useRouter()
@@ -269,6 +270,11 @@ export default function LessonPage() {
             </div>
           </div>
         </div>
+
+        <CommentsSection
+          title="Commentaires sur la leçon"
+          description="Une question sur ce contenu ? Partagez-la avec les autres apprenants."
+        />
       </main>
     </div>
   )
