@@ -274,6 +274,8 @@ export default function LessonPage() {
         <CommentsSection
           title="Commentaires sur la leçon"
           description="Une question sur ce contenu ? Partagez-la avec les autres apprenants."
+          courseId={courseId}
+          lessonId={lessonId}
         />
       </main>
     </div>

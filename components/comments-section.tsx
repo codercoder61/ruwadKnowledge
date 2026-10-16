@@ -1,6 +1,7 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 import { MessageCircle, Send } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 
 type Comment = {
-  id: number
+  id: string
   author: string
   content: string
   createdAt: string
@@ -17,15 +18,48 @@ type Comment = {
 type CommentsSectionProps = {
   title: string
   description: string
-  initialComments?: Comment[]
+  courseId: string
+  lessonId?: string
 }
 
-export function CommentsSection({ title, description, initialComments = [] }: CommentsSectionProps) {
-  const [comments, setComments] = useState<Comment[]>(initialComments)
+export function CommentsSection({ title, description, courseId, lessonId }: CommentsSectionProps) {
+  const [comments, setComments] = useState<Comment[]>([])
   const [draft, setDraft] = useState('')
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadComments() {
+      const query = supabase
+        .from('comments')
+        .select('id, author_name, content, created_at')
+        .eq('course_id', courseId)
+        .order('created_at', { ascending: true })
+
+      const { data, error: loadError } = lessonId
+        ? await query.eq('lesson_id', lessonId)
+        : await query.is('lesson_id', null)
+
+      if (isMounted) {
+        if (loadError) setError('Impossible de charger les commentaires.')
+        else setComments((data ?? []).map((comment) => ({
+          id: comment.id,
+          author: comment.author_name,
+          content: comment.content,
+          createdAt: new Date(comment.created_at).toLocaleString('fr-FR'),
+        })))
+        setIsLoading(false)
+      }
+    }
+
+    void loadComments()
+    return () => { isMounted = false }
+  }, [courseId, lessonId])
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const content = draft.trim()
 
@@ -34,17 +68,33 @@ export function CommentsSection({ title, description, initialComments = [] }: Co
       return
     }
 
-    setComments((current) => [
-      ...current,
-      {
-        id: Date.now(),
-        author: 'Vous',
-        content,
-        createdAt: "À l'instant",
-      },
-    ])
-    setDraft('')
+    setIsSubmitting(true)
     setError('')
+
+    const { data, error: insertError } = await supabase
+      .from('comments')
+      .insert({
+        course_id: courseId,
+        lesson_id: lessonId ?? null,
+        author_name: 'Vous',
+        content,
+      })
+      .select('id, author_name, content, created_at')
+      .single()
+
+    setIsSubmitting(false)
+    if (insertError || !data) {
+      setError('Impossible de publier le commentaire. Vérifiez que la table comments est disponible.')
+      return
+    }
+
+    setComments((current) => [...current, {
+      id: data.id,
+      author: data.author_name,
+      content: data.content,
+      createdAt: new Date(data.created_at).toLocaleString('fr-FR'),
+    }])
+    setDraft('')
   }
 
   return (
@@ -74,7 +124,8 @@ export function CommentsSection({ title, description, initialComments = [] }: Co
           />
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">{draft.length}/1000 caractères</p>
-            <Button type="submit" disabled={!draft.trim()}>
+            <Button type="submit" disabled={!draft.trim() || isSubmitting}>
+              {isSubmitting ? 'Publication…' : null}
               <Send data-icon="inline-start" />
               Publier le commentaire
             </Button>
@@ -82,7 +133,11 @@ export function CommentsSection({ title, description, initialComments = [] }: Co
           {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
         </form>
 
-        {comments.length > 0 ? (
+        {isLoading ? (
+          <p className="rounded-lg bg-muted/50 p-4 text-center text-sm text-muted-foreground" aria-live="polite">
+            Chargement des commentaires…
+          </p>
+        ) : comments.length > 0 ? (
           <div className="flex flex-col gap-4" aria-live="polite">
             {comments.map((comment) => (
               <article key={comment.id} className="flex gap-3 border-t pt-4 first:border-t-0 first:pt-0">
